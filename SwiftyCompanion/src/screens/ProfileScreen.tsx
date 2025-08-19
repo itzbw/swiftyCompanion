@@ -49,6 +49,19 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
     }
   };
 
+  const calculateSkillPercentage = (level: number): number => {
+    // Each level represents 100% until the next level
+    // So level 4.25 = 425% total, but we want the percentage within the current level
+    const currentLevelProgress = level % 1; // Gets the decimal part (0.25 in this example)
+    return Math.round(currentLevelProgress * 100);
+  };
+
+  const getSkillBarWidth = (level: number): number => {
+    // For the progress bar, we want to show progress within the current level
+    const currentLevelProgress = level % 1;
+    return currentLevelProgress * 100; // Convert to percentage for width
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -154,24 +167,35 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
       <View style={styles.skillsSection}>
         <Text style={styles.sectionTitle}>Skills</Text>
         {skills.length > 0 ? (
-          skills.map((skill, index) => (
-            <View key={index} style={styles.skillItem}>
-              <View style={styles.skillHeader}>
-                <Text style={styles.skillName}>{skill.name}</Text>
-                <Text style={styles.skillLevel}>
-                  Level {skill.level.toFixed(2)}
-                </Text>
+          skills.map((skill, index) => {
+            const percentage = calculateSkillPercentage(skill.level);
+            const barWidth = getSkillBarWidth(skill.level);
+
+            return (
+              <View key={index} style={styles.skillItem}>
+                <View style={styles.skillHeader}>
+                  <Text style={styles.skillName}>{skill.name}</Text>
+                  <View style={styles.skillLevelContainer}>
+                    <Text style={styles.skillLevel}>
+                      Level {skill.level.toFixed(2)}
+                    </Text>
+                    <Text style={styles.skillPercentage}>({percentage}%)</Text>
+                  </View>
+                </View>
+                <View style={styles.skillBar}>
+                  <View
+                    style={[styles.skillProgress, { width: `${barWidth}%` }]}
+                  />
+                </View>
+                <View style={styles.skillDetails}>
+                  <Text style={styles.skillDetailText}>
+                    Progress to Level {Math.floor(skill.level) + 1}:{' '}
+                    {percentage}%
+                  </Text>
+                </View>
               </View>
-              <View style={styles.skillBar}>
-                <View
-                  style={[
-                    styles.skillProgress,
-                    { width: `${Math.min(skill.level * 10, 100)}%` },
-                  ]}
-                />
-              </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <Text style={styles.noDataText}>No skills data available</Text>
         )}
@@ -326,30 +350,57 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   skillItem: {
-    marginBottom: 15,
+    marginBottom: 20,
+    padding: 10,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   skillHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   skillName: {
     fontWeight: '600',
     color: COLORS.text,
+    fontSize: 16,
+    flex: 1,
+  },
+  skillLevelContainer: {
+    alignItems: 'flex-end',
   },
   skillLevel: {
     color: COLORS.primary,
     fontWeight: 'bold',
+    fontSize: 14,
+  },
+  skillPercentage: {
+    color: COLORS.secondary,
+    fontWeight: '600',
+    fontSize: 12,
+    marginTop: 2,
   },
   skillBar: {
-    height: 6,
+    height: 8,
     backgroundColor: '#E0E0E0',
-    borderRadius: 3,
+    borderRadius: 4,
+    marginBottom: 5,
   },
   skillProgress: {
     height: '100%',
     backgroundColor: COLORS.primary,
-    borderRadius: 3,
+    borderRadius: 4,
+  },
+  skillDetails: {
+    alignItems: 'center',
+  },
+  skillDetailText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   projectsSection: {
     margin: 20,
