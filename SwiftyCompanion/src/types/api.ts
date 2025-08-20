@@ -98,6 +98,7 @@ export interface User42 {
     id: number;
     final_mark: number | null;
     'validated?': boolean | null;
+    marked_at: string | null;
     project: {
       name: string;
     };

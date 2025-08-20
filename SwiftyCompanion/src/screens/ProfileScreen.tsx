@@ -202,37 +202,64 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
       </View>
 
       <View style={styles.projectsSection}>
-        <Text style={styles.sectionTitle}>Projects</Text>
+        <Text style={styles.sectionTitle}>Projects ({projects.length})</Text>
         {projects.length > 0 ? (
-          projects.slice(0, 10).map((project, index) => (
-            <View key={index} style={styles.projectItem}>
-              <View style={styles.projectHeader}>
-                <Text style={styles.projectName}>{project.project.name}</Text>
-                <Text
-                  style={[
-                    styles.projectMark,
-                    {
-                      color:
-                        project.final_mark === null
-                          ? COLORS.textSecondary
-                          : project['validated?']
-                            ? COLORS.success
-                            : COLORS.error,
-                    },
-                  ]}
-                >
-                  {project.final_mark ?? 'In progress'}
-                </Text>
-              </View>
-              <Text style={styles.projectStatus}>
-                {project['validated?'] === null
-                  ? 'In progress'
-                  : project['validated?']
-                    ? 'Validated'
-                    : 'Failed'}
-              </Text>
-            </View>
-          ))
+          <ScrollView
+            style={styles.projectsScrollView}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            {projects
+              .sort((a, b) => {
+                // Sort by marked_at date (most recent first), then by project name
+                if (a.marked_at && b.marked_at) {
+                  return (
+                    new Date(b.marked_at).getTime() -
+                    new Date(a.marked_at).getTime()
+                  );
+                }
+                if (a.marked_at && !b.marked_at) return -1;
+                if (!a.marked_at && b.marked_at) return 1;
+                return a.project.name.localeCompare(b.project.name);
+              })
+              .map((project, index) => (
+                <View key={index} style={styles.projectItem}>
+                  <View style={styles.projectHeader}>
+                    <Text style={styles.projectName}>
+                      {project.project.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.projectMark,
+                        {
+                          color:
+                            project.final_mark === null
+                              ? COLORS.textSecondary
+                              : project['validated?']
+                                ? COLORS.success
+                                : COLORS.error,
+                        },
+                      ]}
+                    >
+                      {project.final_mark ?? 'In progress'}
+                    </Text>
+                  </View>
+                  <Text style={styles.projectStatus}>
+                    {project['validated?'] === null
+                      ? 'In progress'
+                      : project['validated?']
+                        ? 'Validated'
+                        : 'Failed'}
+                  </Text>
+                  {project.marked_at && (
+                    <Text style={styles.projectDate}>
+                      Completed:{' '}
+                      {new Date(project.marked_at).toLocaleDateString()}
+                    </Text>
+                  )}
+                </View>
+              ))}
+          </ScrollView>
         ) : (
           <Text style={styles.noDataText}>No projects data available</Text>
         )}
@@ -408,6 +435,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 8,
     marginBottom: 40,
+    maxHeight: 600, // Limit height to make it scrollable
   },
   projectItem: {
     marginBottom: 15,
@@ -446,6 +474,16 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+
+  projectsScrollView: {
+    maxHeight: 500, // Set a max height for the scrollable area
+  },
+  projectDate: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
     fontStyle: 'italic',
   },
 });
