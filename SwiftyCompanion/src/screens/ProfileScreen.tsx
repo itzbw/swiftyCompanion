@@ -9,7 +9,8 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { COLORS } from '../constants/config';
+import { COLORS, SPACING } from '../constants/config';
+import { useResponsive, getResponsiveValue } from '../hooks/useResponsive';
 import { User42 } from '../types/api';
 import { apiClient } from '../services/api/client';
 
@@ -22,6 +23,16 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
   const [user, setUser] = useState<User42 | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { deviceType, width, isTablet, isDesktop } = useResponsive();
+
+  const getSectionPadding = getResponsiveValue(
+    SPACING.md,
+    SPACING.lg,
+    SPACING.xl
+  );
+  const getImageSize = getResponsiveValue(120, 140, 160);
+  const getMaxWidth = getResponsiveValue(width, 600, 800);
+  const getColumnsCount = getResponsiveValue(1, 2, 2);
 
   useEffect(() => {
     loadUserData();
@@ -50,16 +61,28 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
   };
 
   const calculateSkillPercentage = (level: number): number => {
-    // Each level represents 100% until the next level
-    // So level 4.25 = 425% total, but we want the percentage within the current level
-    const currentLevelProgress = level % 1; // Gets the decimal part (0.25 in this example)
+    const currentLevelProgress = level % 1;
     return Math.round(currentLevelProgress * 100);
   };
 
   const getSkillBarWidth = (level: number): number => {
-    // For the progress bar, we want to show progress within the current level
     const currentLevelProgress = level % 1;
-    return currentLevelProgress * 100; // Convert to percentage for width
+    return currentLevelProgress * 100;
+  };
+
+  const dynamicStyles = {
+    container: {
+      paddingHorizontal: getSectionPadding(deviceType),
+    },
+    contentContainer: {
+      maxWidth: getMaxWidth(deviceType),
+      alignSelf: 'center' as const,
+    },
+    profileImage: {
+      width: getImageSize(deviceType),
+      height: getImageSize(deviceType),
+      borderRadius: getImageSize(deviceType) / 2,
+    },
   };
 
   if (isLoading) {
@@ -74,13 +97,13 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, dynamicStyles.container]}>
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
             <Text style={styles.buttonText}>← Back</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.errorContainer}>
+        <View style={[styles.errorContainer, dynamicStyles.contentContainer]}>
           <View style={styles.errorIcon}>
             <Text style={styles.errorIconText}>😞</Text>
           </View>
@@ -92,7 +115,6 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
               : 'could not be loaded'}
           </Text>
 
-          {/* Only show Try Again for non-404 errors */}
           {error !== 'Profile not found' && (
             <TouchableOpacity style={styles.retryButton} onPress={loadUserData}>
               <Text style={styles.buttonText}>Try Again</Text>
@@ -120,148 +142,322 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.container]}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Text style={styles.buttonText}>← Back</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.profileSection}>
-        <Image source={{ uri: user.image?.link }} style={styles.profileImage} />
-        <Text style={styles.displayName}>{user.displayname}</Text>
-        <Text style={styles.login}>@{user.login}</Text>
-      </View>
+      <View style={[styles.contentWrapper, dynamicStyles.contentContainer]}>
+        <View style={styles.profileSection}>
+          <Image
+            source={{ uri: user.image?.link }}
+            style={[styles.profileImage, dynamicStyles.profileImage]}
+          />
+          <Text style={styles.displayName}>{user.displayname}</Text>
+          <Text style={styles.login}>@{user.login}</Text>
+        </View>
 
-      <View style={styles.detailsSection}>
-        <Text style={styles.sectionTitle}>Details</Text>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Email:</Text>
-          <Text style={styles.detailValue}>{user.email}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Level:</Text>
-          <Text style={styles.detailValue}>
-            {currentCursus?.level?.toFixed(2) || 'N/A'}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Phone:</Text>
-          <Text style={styles.detailValue}>{user.phone || 'Not provided'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Location:</Text>
-          <Text style={styles.detailValue}>
-            {user.location || 'Not available'}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Wallet:</Text>
-          <Text style={styles.detailValue}>{user.wallet} ₳</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Correction Points:</Text>
-          <Text style={styles.detailValue}>{user.correction_point}</Text>
-        </View>
-      </View>
-
-      <View style={styles.skillsSection}>
-        <Text style={styles.sectionTitle}>Skills</Text>
-        {skills.length > 0 ? (
-          skills.map((skill, index) => {
-            const percentage = calculateSkillPercentage(skill.level);
-            const barWidth = getSkillBarWidth(skill.level);
-
-            return (
-              <View key={index} style={styles.skillItem}>
-                <View style={styles.skillHeader}>
-                  <Text style={styles.skillName}>{skill.name}</Text>
-                  <View style={styles.skillLevelContainer}>
-                    <Text style={styles.skillLevel}>
-                      Level {skill.level.toFixed(2)}
-                    </Text>
-                    <Text style={styles.skillPercentage}>({percentage}%)</Text>
-                  </View>
+        {/* Desktop/Tablet: Two columns layout */}
+        {isTablet || isDesktop ? (
+          <View style={styles.twoColumnLayout}>
+            <View style={styles.leftColumn}>
+              <View style={styles.detailsSection}>
+                <Text style={styles.sectionTitle}>Details</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Email:</Text>
+                  <Text style={styles.detailValue}>{user.email}</Text>
                 </View>
-                <View style={styles.skillBar}>
-                  <View
-                    style={[styles.skillProgress, { width: `${barWidth}%` }]}
-                  />
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Level:</Text>
+                  <Text style={styles.detailValue}>
+                    {currentCursus?.level?.toFixed(2) || 'N/A'}
+                  </Text>
                 </View>
-                <View style={styles.skillDetails}>
-                  <Text style={styles.skillDetailText}>
-                    Progress to Level {Math.floor(skill.level) + 1}:{' '}
-                    {percentage}%
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Phone:</Text>
+                  <Text style={styles.detailValue}>
+                    {user.phone || 'Not provided'}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Location:</Text>
+                  <Text style={styles.detailValue}>
+                    {user.location || 'Not available'}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Wallet:</Text>
+                  <Text style={styles.detailValue}>{user.wallet} ₳</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Correction Points:</Text>
+                  <Text style={styles.detailValue}>
+                    {user.correction_point}
                   </Text>
                 </View>
               </View>
-            );
-          })
-        ) : (
-          <Text style={styles.noDataText}>No skills data available</Text>
-        )}
-      </View>
 
-      <View style={styles.projectsSection}>
-        <Text style={styles.sectionTitle}>Projects ({projects.length})</Text>
-        {projects.length > 0 ? (
-          <ScrollView
-            style={styles.projectsScrollView}
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-          >
-            {projects
-              .sort((a, b) => {
-                // Sort by marked_at date (most recent first), then by project name
-                if (a.marked_at && b.marked_at) {
-                  return (
-                    new Date(b.marked_at).getTime() -
-                    new Date(a.marked_at).getTime()
-                  );
-                }
-                if (a.marked_at && !b.marked_at) return -1;
-                if (!a.marked_at && b.marked_at) return 1;
-                return a.project.name.localeCompare(b.project.name);
-              })
-              .map((project, index) => (
-                <View key={index} style={styles.projectItem}>
-                  <View style={styles.projectHeader}>
-                    <Text style={styles.projectName}>
-                      {project.project.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.projectMark,
-                        {
-                          color:
-                            project.final_mark === null
-                              ? COLORS.textSecondary
-                              : project['validated?']
-                                ? COLORS.success
-                                : COLORS.error,
-                        },
-                      ]}
-                    >
-                      {project.final_mark ?? 'In progress'}
-                    </Text>
-                  </View>
-                  <Text style={styles.projectStatus}>
-                    {project['validated?'] === null
-                      ? 'In progress'
-                      : project['validated?']
-                        ? 'Validated'
-                        : 'Failed'}
+              <View style={styles.skillsSection}>
+                <Text style={styles.sectionTitle}>Skills</Text>
+                {skills.length > 0 ? (
+                  skills.map((skill, index) => {
+                    const percentage = calculateSkillPercentage(skill.level);
+                    const barWidth = getSkillBarWidth(skill.level);
+
+                    return (
+                      <View key={index} style={styles.skillItem}>
+                        <View style={styles.skillHeader}>
+                          <Text style={styles.skillName}>{skill.name}</Text>
+                          <View style={styles.skillLevelContainer}>
+                            <Text style={styles.skillLevel}>
+                              Level {skill.level.toFixed(2)}
+                            </Text>
+                            <Text style={styles.skillPercentage}>
+                              ({percentage}%)
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.skillBar}>
+                          <View
+                            style={[
+                              styles.skillProgress,
+                              { width: `${barWidth}%` },
+                            ]}
+                          />
+                        </View>
+                        <View style={styles.skillDetails}>
+                          <Text style={styles.skillDetailText}>
+                            Progress to Level {Math.floor(skill.level) + 1}:{' '}
+                            {percentage}%
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.noDataText}>
+                    No skills data available
                   </Text>
-                  {project.marked_at && (
-                    <Text style={styles.projectDate}>
-                      Completed:{' '}
-                      {new Date(project.marked_at).toLocaleDateString()}
-                    </Text>
-                  )}
-                </View>
-              ))}
-          </ScrollView>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.rightColumn}>
+              <View style={styles.projectsSection}>
+                <Text style={styles.sectionTitle}>
+                  Projects ({projects.length})
+                </Text>
+                {projects.length > 0 ? (
+                  <ScrollView
+                    style={styles.projectsScrollView}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {projects
+                      .sort((a, b) => {
+                        if (a.marked_at && b.marked_at) {
+                          return (
+                            new Date(b.marked_at).getTime() -
+                            new Date(a.marked_at).getTime()
+                          );
+                        }
+                        if (a.marked_at && !b.marked_at) return -1;
+                        if (!a.marked_at && b.marked_at) return 1;
+                        return a.project.name.localeCompare(b.project.name);
+                      })
+                      .map((project, index) => (
+                        <View key={index} style={styles.projectItem}>
+                          <View style={styles.projectHeader}>
+                            <Text style={styles.projectName}>
+                              {project.project.name}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.projectMark,
+                                {
+                                  color:
+                                    project.final_mark === null
+                                      ? COLORS.textSecondary
+                                      : project['validated?']
+                                        ? COLORS.success
+                                        : COLORS.error,
+                                },
+                              ]}
+                            >
+                              {project.final_mark ?? 'In progress'}
+                            </Text>
+                          </View>
+                          <Text style={styles.projectStatus}>
+                            {project['validated?'] === null
+                              ? 'In progress'
+                              : project['validated?']
+                                ? 'Validated'
+                                : 'Failed'}
+                          </Text>
+                          {project.marked_at && (
+                            <Text style={styles.projectDate}>
+                              Completed:{' '}
+                              {new Date(project.marked_at).toLocaleDateString()}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={styles.noDataText}>
+                    No projects data available
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
         ) : (
-          <Text style={styles.noDataText}>No projects data available</Text>
+          /* Mobile: Single column layout */
+          <>
+            <View style={styles.detailsSection}>
+              <Text style={styles.sectionTitle}>Details</Text>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Email:</Text>
+                <Text style={styles.detailValue}>{user.email}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Level:</Text>
+                <Text style={styles.detailValue}>
+                  {currentCursus?.level?.toFixed(2) || 'N/A'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Phone:</Text>
+                <Text style={styles.detailValue}>
+                  {user.phone || 'Not provided'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Location:</Text>
+                <Text style={styles.detailValue}>
+                  {user.location || 'Not available'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Wallet:</Text>
+                <Text style={styles.detailValue}>{user.wallet} ₳</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Correction Points:</Text>
+                <Text style={styles.detailValue}>{user.correction_point}</Text>
+              </View>
+            </View>
+
+            <View style={styles.projectsSection}>
+              <Text style={styles.sectionTitle}>
+                Projects ({projects.length})
+              </Text>
+              {projects.length > 0 ? (
+                <ScrollView
+                  style={styles.projectsScrollView}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+                  {projects
+                    .sort((a, b) => {
+                      if (a.marked_at && b.marked_at) {
+                        return (
+                          new Date(b.marked_at).getTime() -
+                          new Date(a.marked_at).getTime()
+                        );
+                      }
+                      if (a.marked_at && !b.marked_at) return -1;
+                      if (!a.marked_at && b.marked_at) return 1;
+                      return a.project.name.localeCompare(b.project.name);
+                    })
+                    .map((project, index) => (
+                      <View key={index} style={styles.projectItem}>
+                        <View style={styles.projectHeader}>
+                          <Text style={styles.projectName}>
+                            {project.project.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.projectMark,
+                              {
+                                color:
+                                  project.final_mark === null
+                                    ? COLORS.textSecondary
+                                    : project['validated?']
+                                      ? COLORS.success
+                                      : COLORS.error,
+                              },
+                            ]}
+                          >
+                            {project.final_mark ?? 'In progress'}
+                          </Text>
+                        </View>
+                        <Text style={styles.projectStatus}>
+                          {project['validated?'] === null
+                            ? 'In progress'
+                            : project['validated?']
+                              ? 'Validated'
+                              : 'Failed'}
+                        </Text>
+                        {project.marked_at && (
+                          <Text style={styles.projectDate}>
+                            Completed:{' '}
+                            {new Date(project.marked_at).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                </ScrollView>
+              ) : (
+                <Text style={styles.noDataText}>
+                  No projects data available
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.skillsSection}>
+              <Text style={styles.sectionTitle}>Skills</Text>
+              {skills.length > 0 ? (
+                skills.map((skill, index) => {
+                  const percentage = calculateSkillPercentage(skill.level);
+                  const barWidth = getSkillBarWidth(skill.level);
+
+                  return (
+                    <View key={index} style={styles.skillItem}>
+                      <View style={styles.skillHeader}>
+                        <Text style={styles.skillName}>{skill.name}</Text>
+                        <View style={styles.skillLevelContainer}>
+                          <Text style={styles.skillLevel}>
+                            Level {skill.level.toFixed(2)}
+                          </Text>
+                          <Text style={styles.skillPercentage}>
+                            ({percentage}%)
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.skillBar}>
+                        <View
+                          style={[
+                            styles.skillProgress,
+                            { width: `${barWidth}%` },
+                          ]}
+                        />
+                      </View>
+                      <View style={styles.skillDetails}>
+                        <Text style={styles.skillDetailText}>
+                          Progress to Level {Math.floor(skill.level) + 1}:{' '}
+                          {percentage}%
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.noDataText}>No skills data available</Text>
+              )}
+            </View>
+          </>
         )}
       </View>
     </ScrollView>
@@ -280,7 +476,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: SPACING.sm,
     color: COLORS.textSecondary,
   },
   errorContainer: {
@@ -288,10 +484,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
-    padding: 20,
+    padding: SPACING.lg,
   },
   errorIcon: {
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   errorIconText: {
     fontSize: 64,
@@ -300,86 +496,110 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.error,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   errorSubtitle: {
     fontSize: 16,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: SPACING.xl,
     lineHeight: 22,
   },
   errorText: {
     fontSize: 18,
     color: COLORS.error,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   retryButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 30,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   header: {
-    padding: 20,
     paddingTop: 50,
+    paddingBottom: SPACING.lg,
+  },
+  contentWrapper: {
+    width: '100%',
+  },
+  twoColumnLayout: {
+    flexDirection: 'row',
+    gap: SPACING.lg,
+  },
+  leftColumn: {
+    flex: 1,
+  },
+  rightColumn: {
+    flex: 1,
   },
   profileSection: {
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 15,
+    marginBottom: SPACING.md,
+    borderWidth: 3,
+    borderColor: COLORS.primary,
   },
   displayName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 5,
+    marginBottom: SPACING.xs,
   },
   login: {
     fontSize: 16,
     color: COLORS.textSecondary,
   },
   detailsSection: {
-    margin: 20,
-    padding: 15,
+    margin: SPACING.md,
+    padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.primary,
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 5,
+    paddingVertical: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: SPACING.xs,
   },
   detailLabel: {
     fontWeight: '600',
     color: COLORS.text,
+    flex: 1,
   },
   detailValue: {
     color: COLORS.textSecondary,
+    flex: 2,
+    textAlign: 'right',
   },
   skillsSection: {
-    margin: 20,
-    padding: 15,
+    margin: SPACING.md,
+    padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.xxl,
   },
   skillItem: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: 'white',
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surfaceSecondary,
     borderRadius: 8,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
@@ -388,7 +608,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   skillName: {
     fontWeight: '600',
@@ -412,9 +632,9 @@ const styles = StyleSheet.create({
   },
   skillBar: {
     height: 8,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: COLORS.border,
     borderRadius: 4,
-    marginBottom: 5,
+    marginBottom: SPACING.xs,
   },
   skillProgress: {
     height: '100%',
@@ -430,23 +650,30 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   projectsSection: {
-    margin: 20,
-    padding: 15,
+    margin: SPACING.md,
+    padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    marginBottom: 40,
-    maxHeight: 600, // Limit height to make it scrollable
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    maxHeight: 500,
+  },
+  projectsScrollView: {
+    maxHeight: 400,
   },
   projectItem: {
-    marginBottom: 15,
-    paddingBottom: 10,
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.surfaceSecondary,
+    padding: SPACING.sm,
+    borderRadius: 8,
   },
   projectHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: SPACING.xs,
   },
   projectName: {
     fontWeight: '600',
@@ -460,10 +687,16 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
   },
+  projectDate: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   backButton: {
     backgroundColor: COLORS.secondary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
@@ -475,15 +708,7 @@ const styles = StyleSheet.create({
   noDataText: {
     color: COLORS.textSecondary,
     fontStyle: 'italic',
-  },
-
-  projectsScrollView: {
-    maxHeight: 500, // Set a max height for the scrollable area
-  },
-  projectDate: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: SPACING.lg,
   },
 });

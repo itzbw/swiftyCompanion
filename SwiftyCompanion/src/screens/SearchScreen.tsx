@@ -8,7 +8,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { COLORS } from '../constants/config';
+import { COLORS, SPACING } from '../constants/config';
+import { useResponsive, getResponsiveValue } from '../hooks/useResponsive';
 import { apiClient } from '../services/api/client';
 
 interface SearchScreenProps {
@@ -18,6 +19,16 @@ interface SearchScreenProps {
 export default function SearchScreen({ onUserFound }: SearchScreenProps) {
   const [searchLogin, setSearchLogin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { deviceType, width } = useResponsive();
+
+  const getContainerPadding = getResponsiveValue(
+    SPACING.md,
+    SPACING.lg,
+    SPACING.xl
+  );
+  const getMaxWidth = getResponsiveValue(width, 500, 600);
+  const getTitleSize = getResponsiveValue(28, 32, 36);
+  const getSubtitleSize = getResponsiveValue(16, 18, 20);
 
   const handleSearch = async () => {
     if (!searchLogin.trim()) {
@@ -27,45 +38,61 @@ export default function SearchScreen({ onUserFound }: SearchScreenProps) {
 
     setIsLoading(true);
     try {
-      // Always navigate to profile screen, even if user doesn't exist
-      // ProfileScreen will handle the error display
       onUserFound(searchLogin.trim());
     } catch (error) {
-      // This shouldn't happen since we're not awaiting the API call
-      // But just in case, still navigate to profile screen
       onUserFound(searchLogin.trim());
     } finally {
       setIsLoading(false);
     }
   };
 
+  const dynamicStyles = {
+    container: {
+      padding: getContainerPadding(deviceType),
+    },
+    contentContainer: {
+      maxWidth: getMaxWidth(deviceType),
+    },
+    title: {
+      fontSize: getTitleSize(deviceType),
+    },
+    subtitle: {
+      fontSize: getSubtitleSize(deviceType),
+    },
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>SwiftyCompanion</Text>
-      <Text style={styles.subtitle}>Search for a 42 student</Text>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.contentContainer, dynamicStyles.contentContainer]}>
+        <Text style={[styles.title, dynamicStyles.title]}>SwiftyCompanion</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
+          Search for a 42 student
+        </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter student login"
-        value={searchLogin}
-        onChangeText={setSearchLogin}
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!isLoading}
-        onSubmitEditing={handleSearch}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter student login"
+          placeholderTextColor={COLORS.textSecondary}
+          value={searchLogin}
+          onChangeText={setSearchLogin}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isLoading}
+          onSubmitEditing={handleSearch}
+        />
 
-      <TouchableOpacity
-        style={[styles.searchButton, isLoading && styles.disabledButton]}
-        onPress={handleSearch}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>Search</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.searchButton, isLoading && styles.disabledButton]}
+          onPress={handleSearch}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Search</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -76,35 +103,39 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+  },
+  contentContainer: {
+    width: '100%',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
     fontWeight: 'bold',
     color: COLORS.primary,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
     color: COLORS.textSecondary,
-    marginBottom: 40,
+    marginBottom: SPACING.xxl,
     textAlign: 'center',
+    lineHeight: 24,
   },
   input: {
     width: '100%',
     height: 50,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: COLORS.border,
     borderRadius: 8,
-    paddingHorizontal: 15,
+    paddingHorizontal: SPACING.md,
     fontSize: 16,
-    marginBottom: 20,
-    backgroundColor: 'white',
+    marginBottom: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    color: COLORS.text,
   },
   searchButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 30,
-    paddingVertical: 15,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',

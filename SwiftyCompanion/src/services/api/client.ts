@@ -338,28 +338,99 @@ class ApiClient {
     return response;
   }
 
+  // async getUser(login: string): Promise<User42> {
+  //   try {
+  //     const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`;
+  //     console.log('Fetching user from:', url);
+
+  //     const response = await this.makeAuthenticatedRequest(url);
+
+  //     if (response.status === 404) {
+  //       throw new Error('User not found');
+  //     }
+
+  //     if (!response.ok) {
+  //       throw new Error(`API request failed: ${response.status}`);
+  //     }
+
+  //     const userData = await response.json();
+
+  //     console.log('User location from API:', userData.location);
+  //     console.log('User data received for:', userData.login);
+
+  //     const cursusData = await this.getUserCursus(login);
+  //     const projectsData = await this.getUserProjects(login);
+
+  //     return {
+  //       ...userData,
+  //       cursus_users: cursusData,
+  //       projects_users: projectsData,
+  //     };
+  //   } catch (error) {
+  //     console.error('Error in getUser:', error);
+  //     if (error instanceof Error) {
+  //       throw error;
+  //     }
+  //     throw new Error('Failed to fetch user data');
+  //   }
+  // }
+
   async getUser(login: string): Promise<User42> {
     try {
-      const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`;
-      console.log('Fetching user from:', url);
+      console.log('Fetching user data for:', login);
+      console.time(`getUserData-${login}`);
 
-      const response = await this.makeAuthenticatedRequest(url);
+      // Make all API calls in PARALLEL for speed
+      const [userResponse, cursusResponse, projectsResponse] =
+        await Promise.allSettled([
+          this.makeAuthenticatedRequest(
+            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`
+          ),
+          this.makeAuthenticatedRequest(
+            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users`
+          ),
+          this.makeAuthenticatedRequest(
+            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/projects_users`
+          ),
+        ]);
 
-      if (response.status === 404) {
-        throw new Error('User not found');
+      // Handle main user data (required)
+      if (userResponse.status === 'rejected') {
+        throw new Error('Failed to fetch user: Request rejected');
       }
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+      if (!userResponse.value.ok) {
+        if (userResponse.value.status === 404) {
+          throw new Error('User not found');
+        }
+        throw new Error(`Failed to fetch user: ${userResponse.value.status}`);
       }
 
-      const userData = await response.json();
-
-      console.log('User location from API:', userData.location);
+      const userData = await userResponse.value.json();
       console.log('User data received for:', userData.login);
 
-      const cursusData = await this.getUserCursus(login);
-      const projectsData = await this.getUserProjects(login);
+      // Handle cursus data (optional)
+      let cursusData: any[] = [];
+      if (cursusResponse.status === 'fulfilled' && cursusResponse.value.ok) {
+        cursusData = await cursusResponse.value.json();
+        console.log('Cursus data loaded successfully');
+      } else {
+        console.warn('Failed to load cursus data, using empty array');
+      }
+
+      // Handle projects data (optional)
+      let projectsData: UserProject[] = [];
+      if (
+        projectsResponse.status === 'fulfilled' &&
+        projectsResponse.value.ok
+      ) {
+        projectsData = await projectsResponse.value.json();
+        console.log(`Projects data loaded: ${projectsData.length} projects`);
+      } else {
+        console.warn('Failed to load projects data, using empty array');
+      }
+
+      console.timeEnd(`getUserData-${login}`);
 
       return {
         ...userData,
