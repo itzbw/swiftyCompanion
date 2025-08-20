@@ -9,7 +9,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { COLORS, SPACING } from '../constants/config';
+import { COLORS, SPACING, GLOW_STYLES } from '../constants/config';
 import { useResponsive, getResponsiveValue } from '../hooks/useResponsive';
 import { User42 } from '../types/api';
 import { apiClient } from '../services/api/client';
@@ -34,6 +34,59 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
   const getMaxWidth = getResponsiveValue(width, 600, 800);
   const getColumnsCount = getResponsiveValue(1, 2, 2);
 
+  // Move ALL useMemo hooks to the top, before any conditional returns
+  const currentCursus = React.useMemo(() => {
+    console.log('🔍 EXTRACTING CURSUS - user state:', !!user);
+    console.log('🔍 cursus_users available:', user?.cursus_users?.length || 0);
+
+    if (!user?.cursus_users || user.cursus_users.length === 0) {
+      console.log('🔍 NO CURSUS DATA AVAILABLE');
+      return null;
+    }
+
+    // Find the most relevant cursus
+    let selectedCursus = user.cursus_users.find(
+      cursus =>
+        cursus.cursus?.name?.toLowerCase().includes('42') ||
+        cursus.cursus?.slug?.toLowerCase().includes('42cursus')
+    );
+
+    if (!selectedCursus) {
+      selectedCursus = user.cursus_users.reduce((prev, current) =>
+        (current.level || 0) > (prev.level || 0) ? current : prev
+      );
+    }
+
+    if (!selectedCursus) {
+      selectedCursus = user.cursus_users[0];
+    }
+
+    console.log('🔍 Selected cursus level:', selectedCursus?.level);
+    console.log(
+      '🔍 Selected cursus skills:',
+      selectedCursus?.skills?.length || 0
+    );
+
+    return selectedCursus;
+  }, [user]);
+
+  const skills = React.useMemo(() => {
+    console.log('🔍 EXTRACTING SKILLS from cursus:', !!currentCursus);
+
+    if (!currentCursus?.skills) {
+      console.log('🔍 NO SKILLS AVAILABLE');
+      return [];
+    }
+
+    console.log('🔍 SKILLS FOUND:', currentCursus.skills.length);
+    return currentCursus.skills;
+  }, [currentCursus]);
+
+  const projects = React.useMemo(() => {
+    console.log('🔍 EXTRACTING PROJECTS:', user?.projects_users?.length || 0);
+    return user?.projects_users || [];
+  }, [user]);
+
   useEffect(() => {
     loadUserData();
   }, [login]);
@@ -41,12 +94,23 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
   const loadUserData = async () => {
     setIsLoading(true);
     setError(null);
+
     try {
+      console.log('🔄 Loading user data for:', login);
       const userData = await apiClient.getUser(login);
+
+      // Add a small delay to ensure all data is properly received
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      console.log('🔍 SETTING USER DATA:');
+      console.log('- cursus_users:', userData.cursus_users?.length || 0);
+      console.log('- projects_users:', userData.projects_users?.length || 0);
+
       setUser(userData);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ LoadUserData error:', errorMessage);
 
       if (errorMessage.includes('User not found')) {
         setError('Profile not found');
@@ -84,6 +148,10 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
       borderRadius: getImageSize(deviceType) / 2,
     },
   };
+
+  console.log('🔍 FINAL EXTRACTION RESULTS:');
+  console.log('- skills:', skills.length);
+  console.log('- projects:', projects.length);
 
   if (isLoading) {
     return (
@@ -136,10 +204,6 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
     );
   }
 
-  const currentCursus = user.cursus_users?.[0];
-  const skills = currentCursus?.skills || [];
-  const projects = user.projects_users || [];
-
   return (
     <ScrollView style={styles.container}>
       <View style={[styles.header, dynamicStyles.container]}>
@@ -158,10 +222,11 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
           <Text style={styles.login}>@{user.login}</Text>
         </View>
 
-        {/* Desktop/Tablet: Two columns layout */}
+        {/* Desktop/Tablet: New layout - Details + Skills on left, Big Projects on right */}
         {isTablet || isDesktop ? (
           <View style={styles.twoColumnLayout}>
             <View style={styles.leftColumn}>
+              {/* Details Section */}
               <View style={styles.detailsSection}>
                 <Text style={styles.sectionTitle}>Details</Text>
                 <View style={styles.detailRow}>
@@ -198,59 +263,57 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
                 </View>
               </View>
 
-              <View style={styles.skillsSection}>
-                <Text style={styles.sectionTitle}>Skills</Text>
+              {/* Compact Skills Section */}
+              <View style={styles.skillsSectionCompact}>
+                <Text style={styles.sectionTitleSmall}>Skills</Text>
                 {skills.length > 0 ? (
                   skills.map((skill, index) => {
                     const percentage = calculateSkillPercentage(skill.level);
                     const barWidth = getSkillBarWidth(skill.level);
 
                     return (
-                      <View key={index} style={styles.skillItem}>
-                        <View style={styles.skillHeader}>
-                          <Text style={styles.skillName}>{skill.name}</Text>
-                          <View style={styles.skillLevelContainer}>
-                            <Text style={styles.skillLevel}>
-                              Level {skill.level.toFixed(2)}
-                            </Text>
-                            <Text style={styles.skillPercentage}>
-                              ({percentage}%)
-                            </Text>
-                          </View>
+                      <View key={index} style={styles.skillItemCompact}>
+                        <View style={styles.skillHeaderCompact}>
+                          <Text style={styles.skillNameCompact}>
+                            {skill.name}
+                          </Text>
+                          <Text style={styles.skillLevelCompact}>
+                            Lv {Math.floor(skill.level)} (
+                            {calculateSkillPercentage(skill.level)}%)
+                          </Text>
                         </View>
-                        <View style={styles.skillBar}>
+                        <View style={styles.skillBarCompact}>
                           <View
                             style={[
-                              styles.skillProgress,
+                              styles.skillProgressCompact,
                               { width: `${barWidth}%` },
                             ]}
                           />
                         </View>
-                        <View style={styles.skillDetails}>
-                          <Text style={styles.skillDetailText}>
-                            Progress to Level {Math.floor(skill.level) + 1}:{' '}
-                            {percentage}%
-                          </Text>
-                        </View>
+                        <Text style={styles.skillPercentageText}>
+                          {skill.level.toFixed(2)} /{' '}
+                          {Math.floor(skill.level) + 1}
+                        </Text>
                       </View>
                     );
                   })
                 ) : (
-                  <Text style={styles.noDataText}>
+                  <Text style={styles.noDataTextSmall}>
                     No skills data available
                   </Text>
                 )}
               </View>
             </View>
 
-            <View style={styles.rightColumn}>
-              <View style={styles.projectsSection}>
-                <Text style={styles.sectionTitle}>
+            {/* Right Column - Expanded Projects */}
+            <View style={styles.rightColumnExpanded}>
+              <View style={styles.projectsSectionExpanded}>
+                <Text style={styles.sectionTitleLarge}>
                   Projects ({projects.length})
                 </Text>
                 {projects.length > 0 ? (
                   <ScrollView
-                    style={styles.projectsScrollView}
+                    style={styles.projectsScrollViewExpanded}
                     showsVerticalScrollIndicator={true}
                     nestedScrollEnabled={true}
                   >
@@ -267,40 +330,47 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
                         return a.project.name.localeCompare(b.project.name);
                       })
                       .map((project, index) => (
-                        <View key={index} style={styles.projectItem}>
-                          <View style={styles.projectHeader}>
-                            <Text style={styles.projectName}>
+                        <View key={index} style={styles.projectItemExpanded}>
+                          <View style={styles.projectHeaderExpanded}>
+                            <Text style={styles.projectNameExpanded}>
                               {project.project.name}
                             </Text>
-                            <Text
-                              style={[
-                                styles.projectMark,
-                                {
-                                  color:
-                                    project.final_mark === null
-                                      ? COLORS.textSecondary
-                                      : project['validated?']
-                                        ? COLORS.success
-                                        : COLORS.error,
-                                },
-                              ]}
-                            >
-                              {project.final_mark ?? 'In progress'}
-                            </Text>
+                            <View style={styles.projectScoreContainer}>
+                              <Text
+                                style={[
+                                  styles.projectMarkExpanded,
+                                  {
+                                    color:
+                                      project.final_mark === null
+                                        ? COLORS.textSecondary
+                                        : project['validated?']
+                                          ? COLORS.success
+                                          : COLORS.error,
+                                  },
+                                ]}
+                              >
+                                {project.final_mark ?? 'In progress'}
+                              </Text>
+                            </View>
                           </View>
-                          <Text style={styles.projectStatus}>
-                            {project['validated?'] === null
-                              ? 'In progress'
-                              : project['validated?']
-                                ? 'Validated'
-                                : 'Failed'}
-                          </Text>
-                          {project.marked_at && (
-                            <Text style={styles.projectDate}>
-                              Completed:{' '}
-                              {new Date(project.marked_at).toLocaleDateString()}
+                          <View style={styles.projectMetaData}>
+                            <Text style={styles.projectStatusExpanded}>
+                              Status:{' '}
+                              {project['validated?'] === null
+                                ? 'In progress'
+                                : project['validated?']
+                                  ? 'Validated ✅'
+                                  : 'Failed ❌'}
                             </Text>
-                          )}
+                            {project.marked_at && (
+                              <Text style={styles.projectDateExpanded}>
+                                📅 Completed:{' '}
+                                {new Date(
+                                  project.marked_at
+                                ).toLocaleDateString()}
+                              </Text>
+                            )}
+                          </View>
                         </View>
                       ))}
                   </ScrollView>
@@ -313,8 +383,9 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
             </View>
           </View>
         ) : (
-          /* Mobile: Single column layout */
+          /* Mobile: Stacked layout with big projects first */
           <>
+            {/* Mobile Details */}
             <View style={styles.detailsSection}>
               <Text style={styles.sectionTitle}>Details</Text>
               <View style={styles.detailRow}>
@@ -349,13 +420,14 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
               </View>
             </View>
 
-            <View style={styles.projectsSection}>
-              <Text style={styles.sectionTitle}>
+            {/* Mobile Projects - Big Card */}
+            <View style={styles.projectsSectionMobile}>
+              <Text style={styles.sectionTitleLarge}>
                 Projects ({projects.length})
               </Text>
               {projects.length > 0 ? (
                 <ScrollView
-                  style={styles.projectsScrollView}
+                  style={styles.projectsScrollViewMobile}
                   showsVerticalScrollIndicator={true}
                   nestedScrollEnabled={true}
                 >
@@ -372,14 +444,14 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
                       return a.project.name.localeCompare(b.project.name);
                     })
                     .map((project, index) => (
-                      <View key={index} style={styles.projectItem}>
-                        <View style={styles.projectHeader}>
-                          <Text style={styles.projectName}>
+                      <View key={index} style={styles.projectItemMobile}>
+                        <View style={styles.projectHeaderMobile}>
+                          <Text style={styles.projectNameMobile}>
                             {project.project.name}
                           </Text>
                           <Text
                             style={[
-                              styles.projectMark,
+                              styles.projectMarkMobile,
                               {
                                 color:
                                   project.final_mark === null
@@ -393,16 +465,16 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
                             {project.final_mark ?? 'In progress'}
                           </Text>
                         </View>
-                        <Text style={styles.projectStatus}>
+                        <Text style={styles.projectStatusMobile}>
                           {project['validated?'] === null
-                            ? 'In progress'
+                            ? '🔄 In progress'
                             : project['validated?']
-                              ? 'Validated'
-                              : 'Failed'}
+                              ? '✅ Validated'
+                              : '❌ Failed'}
                         </Text>
                         {project.marked_at && (
-                          <Text style={styles.projectDate}>
-                            Completed:{' '}
+                          <Text style={styles.projectDateMobile}>
+                            📅{' '}
                             {new Date(project.marked_at).toLocaleDateString()}
                           </Text>
                         )}
@@ -416,43 +488,38 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
               )}
             </View>
 
-            <View style={styles.skillsSection}>
+            {/* Mobile Skills - Compact */}
+            <View style={styles.skillsSectionMobile}>
               <Text style={styles.sectionTitle}>Skills</Text>
               {skills.length > 0 ? (
-                skills.map((skill, index) => {
-                  const percentage = calculateSkillPercentage(skill.level);
-                  const barWidth = getSkillBarWidth(skill.level);
+                <View style={styles.skillsGrid}>
+                  {skills.map((skill, index) => {
+                    const percentage = calculateSkillPercentage(skill.level);
+                    const barWidth = getSkillBarWidth(skill.level);
 
-                  return (
-                    <View key={index} style={styles.skillItem}>
-                      <View style={styles.skillHeader}>
-                        <Text style={styles.skillName}>{skill.name}</Text>
-                        <View style={styles.skillLevelContainer}>
-                          <Text style={styles.skillLevel}>
-                            Level {skill.level.toFixed(2)}
-                          </Text>
-                          <Text style={styles.skillPercentage}>
-                            ({percentage}%)
-                          </Text>
+                    return (
+                      <View key={index} style={styles.skillItemGrid}>
+                        <Text style={styles.skillNameGrid}>{skill.name}</Text>
+                        <Text style={styles.skillLevelGrid}>
+                          Level {Math.floor(skill.level)} -{' '}
+                          {calculateSkillPercentage(skill.level)}%
+                        </Text>
+                        <View style={styles.skillBarGrid}>
+                          <View
+                            style={[
+                              styles.skillProgressGrid,
+                              { width: `${barWidth}%` },
+                            ]}
+                          />
                         </View>
-                      </View>
-                      <View style={styles.skillBar}>
-                        <View
-                          style={[
-                            styles.skillProgress,
-                            { width: `${barWidth}%` },
-                          ]}
-                        />
-                      </View>
-                      <View style={styles.skillDetails}>
-                        <Text style={styles.skillDetailText}>
-                          Progress to Level {Math.floor(skill.level) + 1}:{' '}
-                          {percentage}%
+                        <Text style={styles.skillDetailGrid}>
+                          {skill.level.toFixed(2)} /{' '}
+                          {Math.floor(skill.level) + 1}
                         </Text>
                       </View>
-                    </View>
-                  );
-                })
+                    );
+                  })}
+                </View>
               ) : (
                 <Text style={styles.noDataText}>No skills data available</Text>
               )}
@@ -461,7 +528,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
         )}
       </View>
     </ScrollView>
-  );
+  ); // <- This closing parenthesis and semicolon were likely missing
 }
 
 const styles = StyleSheet.create({
@@ -477,7 +544,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: SPACING.sm,
-    color: COLORS.textSecondary,
+    color: COLORS.neonPink,
+    fontSize: 16,
+    fontWeight: 'bold',
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   errorContainer: {
     flex: 1,
@@ -495,9 +567,12 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.error,
+    color: COLORS.neonPink,
     marginBottom: SPACING.sm,
     textAlign: 'center',
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   errorSubtitle: {
     fontSize: 16,
@@ -512,11 +587,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   retryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.neonViolet,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: SPACING.sm,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    ...GLOW_STYLES.violetGlow,
   },
   header: {
     paddingTop: 50,
@@ -530,44 +608,83 @@ const styles = StyleSheet.create({
     gap: SPACING.lg,
   },
   leftColumn: {
-    flex: 1,
+    flex: 0.4, // Smaller for details + skills
   },
-  rightColumn: {
-    flex: 1,
+  rightColumnExpanded: {
+    flex: 0.6, // Bigger for projects
   },
   profileSection: {
     alignItems: 'center',
     padding: SPACING.lg,
     marginBottom: SPACING.md,
+    backgroundColor: COLORS.surfaceAccent,
+    marginHorizontal: SPACING.md,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    ...GLOW_STYLES.neonGlow,
   },
   profileImage: {
     marginBottom: SPACING.md,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: COLORS.neonPink,
+    ...GLOW_STYLES.neonGlow,
   },
   displayName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.xs,
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 5,
   },
   login: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: COLORS.neonViolet,
+    fontWeight: '600',
+    textShadowColor: COLORS.glowViolet,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
   },
   detailsSection: {
     margin: SPACING.md,
     padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 2,
     borderColor: COLORS.border,
+    ...GLOW_STYLES.violetGlow,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: COLORS.neonPink,
     marginBottom: SPACING.md,
+    textAlign: 'center',
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 5,
+  },
+  sectionTitleSmall: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.neonViolet,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+    textShadowColor: COLORS.glowViolet,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+  },
+  sectionTitleLarge: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.neonPink,
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   detailRow: {
     flexDirection: 'row',
@@ -583,11 +700,173 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailValue: {
-    color: COLORS.textSecondary,
+    color: COLORS.neonViolet,
     flex: 2,
     textAlign: 'right',
+    fontWeight: '500',
   },
-  skillsSection: {
+  // Compact Skills Styles
+  skillsSectionCompact: {
+    margin: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...GLOW_STYLES.cyanGlow,
+  },
+  skillItemCompact: {
+    marginBottom: SPACING.sm,
+    padding: SPACING.xs,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.neonPink,
+  },
+  skillHeaderCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  skillNameCompact: {
+    fontWeight: '600',
+    color: COLORS.text,
+    fontSize: 13,
+    flex: 1,
+  },
+  skillLevelCompact: {
+    color: COLORS.neonPink,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  skillBarCompact: {
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+  },
+  skillProgressCompact: {
+    height: '100%',
+    backgroundColor: COLORS.neonPink,
+    borderRadius: 2,
+  },
+  // Expanded Projects Styles
+  projectsSectionExpanded: {
+    margin: SPACING.md,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    minHeight: 600,
+    ...GLOW_STYLES.neonGlow,
+  },
+  projectsScrollViewExpanded: {
+    maxHeight: 500,
+  },
+  projectItemExpanded: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    ...GLOW_STYLES.violetGlow,
+  },
+  projectHeaderExpanded: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  projectNameExpanded: {
+    fontWeight: 'bold',
+    color: COLORS.text,
+    fontSize: 18,
+    flex: 1,
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
+  },
+  projectScoreContainer: {
+    backgroundColor: COLORS.surfaceAccent,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  projectMarkExpanded: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+  },
+  projectMetaData: {
+    flexDirection: 'column',
+    gap: SPACING.xs,
+  },
+  projectStatusExpanded: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  projectDateExpanded: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  // Mobile Projects Styles
+  projectsSectionMobile: {
+    margin: SPACING.md,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    maxHeight: 400,
+    ...GLOW_STYLES.neonGlow,
+  },
+  projectsScrollViewMobile: {
+    maxHeight: 300,
+  },
+  projectItemMobile: {
+    marginBottom: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderAccent,
+  },
+  projectHeaderMobile: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
+  projectNameMobile: {
+    fontWeight: '600',
+    color: COLORS.text,
+    flex: 1,
+    fontSize: 16,
+  },
+  projectMarkMobile: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  projectStatusMobile: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: SPACING.xs,
+  },
+  projectDateMobile: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  // Mobile Skills Grid
+  skillsSectionMobile: {
     margin: SPACING.md,
     padding: SPACING.md,
     backgroundColor: COLORS.surface,
@@ -595,120 +874,86 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: SPACING.xxl,
+    ...GLOW_STYLES.cyanGlow,
   },
-  skillItem: {
-    marginBottom: SPACING.lg,
-    padding: SPACING.md,
+  skillsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  skillItemGrid: {
+    width: '48%',
+    padding: SPACING.xs,
     backgroundColor: COLORS.surfaceSecondary,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.neonPink,
   },
-  skillHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  skillName: {
+  skillNameGrid: {
     fontWeight: '600',
     color: COLORS.text,
-    fontSize: 16,
-    flex: 1,
-  },
-  skillLevelContainer: {
-    alignItems: 'flex-end',
-  },
-  skillLevel: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  skillPercentage: {
-    color: COLORS.secondary,
-    fontWeight: '600',
     fontSize: 12,
-    marginTop: 2,
+    marginBottom: SPACING.xs,
   },
-  skillBar: {
-    height: 8,
+  skillLevelGrid: {
+    color: COLORS.neonViolet,
+    fontWeight: 'bold',
+    fontSize: 11,
+    marginBottom: SPACING.xs,
+  },
+  skillBarGrid: {
+    height: 3,
     backgroundColor: COLORS.border,
-    borderRadius: 4,
-    marginBottom: SPACING.xs,
+    borderRadius: 2,
   },
-  skillProgress: {
+  skillProgressGrid: {
     height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
-  },
-  skillDetails: {
-    alignItems: 'center',
-  },
-  skillDetailText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  },
-  projectsSection: {
-    margin: SPACING.md,
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    maxHeight: 500,
-  },
-  projectsScrollView: {
-    maxHeight: 400,
-  },
-  projectItem: {
-    marginBottom: SPACING.md,
-    paddingBottom: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surfaceSecondary,
-    padding: SPACING.sm,
-    borderRadius: 8,
-  },
-  projectHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  projectName: {
-    fontWeight: '600',
-    color: COLORS.text,
-    flex: 1,
-  },
-  projectMark: {
-    fontWeight: 'bold',
-  },
-  projectStatus: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-  },
-  projectDate: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-    fontStyle: 'italic',
+    backgroundColor: COLORS.neonPink,
+    borderRadius: 2,
   },
   backButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.neonViolet,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    borderRadius: 8,
+    borderRadius: 12,
     alignSelf: 'flex-start',
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    ...GLOW_STYLES.violetGlow,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    textShadowColor: COLORS.glowViolet,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
   },
   noDataText: {
     color: COLORS.textSecondary,
     fontStyle: 'italic',
     textAlign: 'center',
     padding: SPACING.lg,
+  },
+  noDataTextSmall: {
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: SPACING.sm,
+    fontSize: 12,
+  },
+  skillPercentageText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  skillDetailGrid: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
 });

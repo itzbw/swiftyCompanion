@@ -18,18 +18,41 @@ export const ENDPOINTS = {
 } as const;
 
 export const COLORS = {
-  primary: '#00BABC',
-  secondary: '#FF6B35',
-  background: '#0D1117', // Dark background
-  surface: '#161B22', // Card backgrounds
-  surfaceSecondary: '#21262D', // Secondary surfaces
-  text: '#F0F6FC', // Primary text (light)
-  textSecondary: '#8B949E', // Secondary text (gray)
-  border: '#30363D', // Border color
-  error: '#F85149', // Error red
-  success: '#56D364', // Success green
-  warning: '#E3B341', // Warning yellow
-  accent: '#A5A5F5', // Accent color
+  // Primary neon colors
+  primary: '#FF00FF', // Bright neon magenta/pink
+  secondary: '#8A2BE2', // Blue violet
+  accent: '#FF1493', // Deep pink
+
+  // Background colors (dark base)
+  background: '#0A0A0F', // Very dark navy/black
+  surface: '#1A1A2E', // Dark purple-navy
+  surfaceSecondary: '#16213E', // Slightly lighter dark blue
+  surfaceAccent: '#2D1B69', // Dark violet
+
+  // Text colors
+  text: '#F8F8FF', // Ghost white
+  textSecondary: '#C8B2DB', // Light lavender
+  textMuted: '#9370DB', // Medium slate blue
+
+  // Accent colors
+  neonPink: '#FF10F0', // Electric pink
+  neonViolet: '#8B00FF', // Electric violet
+  neonBlue: '#00FFFF', // Cyan (for contrast)
+
+  // Utility colors
+  border: '#4B0082', // Indigo border
+  borderAccent: '#DA70D6', // Orchid
+
+  // Status colors (with neon twist)
+  success: '#00FF7F', // Spring green (neon)
+  error: '#FF1493', // Deep pink (matches theme)
+  warning: '#FFD700', // Gold
+  info: '#00BFFF', // Deep sky blue
+
+  // Glow effects (for shadows/glows)
+  glowPink: '#FF10F0',
+  glowViolet: '#8B00FF',
+  glowCyan: '#00FFFF',
 } as const;
 
 export const STORAGE_KEYS = {
@@ -51,4 +74,28 @@ export const SPACING = {
   lg: 24,
   xl: 32,
   xxl: 48,
+} as const;
+
+export const GLOW_STYLES = {
+  neonGlow: {
+    shadowColor: COLORS.glowPink,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  violetGlow: {
+    shadowColor: COLORS.glowViolet,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    elevation: 15,
+  },
+  cyanGlow: {
+    shadowColor: COLORS.glowCyan,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 10,
+  },
 } as const;

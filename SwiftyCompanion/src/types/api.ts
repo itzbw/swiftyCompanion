@@ -86,14 +86,33 @@ export interface User42 {
   'alumni?': boolean;
   'active?': boolean;
   // Add these fields that ProfileScreen expects:
+  // cursus_users?: Array<{
+  //   level: number;
+  //   skills: Array<{
+  //     id: number;
+  //     name: string;
+  //     level: number;
+  //   }>;
+  // }>;
   cursus_users?: Array<{
+    id: number;
     level: number;
+    grade?: string;
+    cursus: {
+      id: number;
+      name: string;
+      slug: string;
+    };
     skills: Array<{
       id: number;
       name: string;
       level: number;
     }>;
+    begin_at: string;
+    end_at?: string;
+    has_coalition: boolean;
   }>;
+
   projects_users?: Array<{
     id: number;
     final_mark: number | null;

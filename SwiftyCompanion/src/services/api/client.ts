@@ -195,10 +195,9 @@ import {
 class ApiClient {
   private accessToken: string | null = null;
   private tokenExpiresAt: number | null = null;
-  private isAuthenticating: boolean = false; // Prevent multiple simultaneous auth requests
+  private isAuthenticating: boolean = false;
 
   async authenticate(): Promise<void> {
-    // If already authenticating, wait for it to complete
     if (this.isAuthenticating) {
       return new Promise((resolve, reject) => {
         const checkAuth = () => {
@@ -242,8 +241,6 @@ class ApiClient {
         }
       );
 
-      console.log('Auth response status:', response.status);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Auth error response:', errorText);
@@ -254,19 +251,9 @@ class ApiClient {
 
       const tokenData: AuthToken = await response.json();
       this.accessToken = tokenData.access_token;
-
-      // Calculate when the token expires (subtract 5 minutes for safety)
       this.tokenExpiresAt = Date.now() + (tokenData.expires_in - 300) * 1000;
 
-      console.log(
-        'Authentication successful, token expires in:',
-        tokenData.expires_in,
-        'seconds'
-      );
-      console.log(
-        'Token will be refreshed at:',
-        new Date(this.tokenExpiresAt).toISOString()
-      );
+      console.log('Authentication successful');
     } catch (error) {
       console.error('Authentication error:', error);
       this.accessToken = null;
@@ -281,20 +268,11 @@ class ApiClient {
     if (!this.tokenExpiresAt) {
       return true;
     }
-    const now = Date.now();
-    const isExpired = now >= this.tokenExpiresAt;
-
-    if (isExpired) {
-      console.log('Token has expired, will refresh on next request');
-    }
-
-    return isExpired;
+    return Date.now() >= this.tokenExpiresAt;
   }
 
   private async ensureValidToken(): Promise<void> {
-    // If no token or token is expired, authenticate
     if (!this.accessToken || this.isTokenExpired()) {
-      console.log('Token missing or expired, authenticating...');
       await this.authenticate();
     }
   }
@@ -313,19 +291,12 @@ class ApiClient {
       },
     });
 
-    // If we get 401 Unauthorized, the token might have expired
-    // Try to refresh once and retry the request
     if (response.status === 401) {
-      console.log(
-        'Got 401, token might be expired. Refreshing and retrying...'
-      );
-
-      // Force re-authentication
+      console.log('Got 401, refreshing token and retrying...');
       this.accessToken = null;
       this.tokenExpiresAt = null;
       await this.authenticate();
 
-      // Retry the request with new token
       return fetch(url, {
         ...options,
         headers: {
@@ -338,117 +309,140 @@ class ApiClient {
     return response;
   }
 
-  // async getUser(login: string): Promise<User42> {
-  //   try {
-  //     const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`;
-  //     console.log('Fetching user from:', url);
-
-  //     const response = await this.makeAuthenticatedRequest(url);
-
-  //     if (response.status === 404) {
-  //       throw new Error('User not found');
-  //     }
-
-  //     if (!response.ok) {
-  //       throw new Error(`API request failed: ${response.status}`);
-  //     }
-
-  //     const userData = await response.json();
-
-  //     console.log('User location from API:', userData.location);
-  //     console.log('User data received for:', userData.login);
-
-  //     const cursusData = await this.getUserCursus(login);
-  //     const projectsData = await this.getUserProjects(login);
-
-  //     return {
-  //       ...userData,
-  //       cursus_users: cursusData,
-  //       projects_users: projectsData,
-  //     };
-  //   } catch (error) {
-  //     console.error('Error in getUser:', error);
-  //     if (error instanceof Error) {
-  //       throw error;
-  //     }
-  //     throw new Error('Failed to fetch user data');
-  //   }
-  // }
-
+  // Replace the getUser method with this more stable version:
   async getUser(login: string): Promise<User42> {
     try {
       console.log('Fetching user data for:', login);
       console.time(`getUserData-${login}`);
 
-      // Make all API calls in PARALLEL for speed
-      const [userResponse, cursusResponse, projectsResponse] =
-        await Promise.allSettled([
-          this.makeAuthenticatedRequest(
-            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`
-          ),
-          this.makeAuthenticatedRequest(
-            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users`
-          ),
-          this.makeAuthenticatedRequest(
-            `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/projects_users`
-          ),
-        ]);
+      // First, get the main user data (this must succeed)
+      const userResponse = await this.makeAuthenticatedRequest(
+        `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}`
+      );
 
-      // Handle main user data (required)
-      if (userResponse.status === 'rejected') {
-        throw new Error('Failed to fetch user: Request rejected');
-      }
-
-      if (!userResponse.value.ok) {
-        if (userResponse.value.status === 404) {
+      if (!userResponse.ok) {
+        if (userResponse.status === 404) {
           throw new Error('User not found');
         }
-        throw new Error(`Failed to fetch user: ${userResponse.value.status}`);
+        throw new Error(`Failed to fetch user: ${userResponse.status}`);
       }
 
-      const userData = await userResponse.value.json();
-      console.log('User data received for:', userData.login);
+      const userData = await userResponse.json();
+      console.log('✅ User data received for:', userData.login);
 
-      // Handle cursus data (optional)
+      // Then fetch cursus and projects data in parallel (these can fail gracefully)
+      const [cursusResult, projectsResult] = await Promise.allSettled([
+        this.makeAuthenticatedRequest(
+          `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users`
+        ),
+        this.makeAuthenticatedRequest(
+          `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/projects_users`
+        ),
+      ]);
+
+      // Handle cursus data with better error checking
       let cursusData: any[] = [];
-      if (cursusResponse.status === 'fulfilled' && cursusResponse.value.ok) {
-        cursusData = await cursusResponse.value.json();
-        console.log('Cursus data loaded successfully');
+      if (cursusResult.status === 'fulfilled') {
+        try {
+          if (cursusResult.value.ok) {
+            cursusData = await cursusResult.value.json();
+            console.log('✅ Cursus data loaded:', cursusData.length, 'entries');
+
+            // Debug first cursus entry
+            if (cursusData.length > 0) {
+              console.log(
+                '🔍 First cursus skills:',
+                cursusData[0].skills?.length || 0
+              );
+            }
+          } else {
+            console.warn(
+              '❌ Cursus request failed:',
+              cursusResult.value.status
+            );
+          }
+        } catch (error) {
+          console.warn('❌ Error parsing cursus data:', error);
+        }
       } else {
-        console.warn('Failed to load cursus data, using empty array');
+        console.warn('❌ Cursus request rejected:', cursusResult.reason);
       }
 
-      // Handle projects data (optional)
-      let projectsData: UserProject[] = [];
-      if (
-        projectsResponse.status === 'fulfilled' &&
-        projectsResponse.value.ok
-      ) {
-        projectsData = await projectsResponse.value.json();
-        console.log(`Projects data loaded: ${projectsData.length} projects`);
+      // Handle projects data with better error checking
+      let projectsData: any[] = [];
+      if (projectsResult.status === 'fulfilled') {
+        try {
+          if (projectsResult.value.ok) {
+            projectsData = await projectsResult.value.json();
+            console.log(
+              '✅ Projects data loaded:',
+              projectsData.length,
+              'entries'
+            );
+          } else {
+            console.warn(
+              '❌ Projects request failed:',
+              projectsResult.value.status
+            );
+          }
+        } catch (error) {
+          console.warn('❌ Error parsing projects data:', error);
+        }
       } else {
-        console.warn('Failed to load projects data, using empty array');
+        console.warn('❌ Projects request rejected:', projectsResult.reason);
       }
 
       console.timeEnd(`getUserData-${login}`);
 
-      return {
+      const finalUserData = {
         ...userData,
         cursus_users: cursusData,
         projects_users: projectsData,
       };
+
+      console.log('🔍 FINAL DATA SUMMARY:');
+      console.log('- Cursus entries:', finalUserData.cursus_users?.length || 0);
+      console.log(
+        '- Projects entries:',
+        finalUserData.projects_users?.length || 0
+      );
+      if (finalUserData.cursus_users?.[0]) {
+        console.log(
+          '- Skills in first cursus:',
+          finalUserData.cursus_users[0].skills?.length || 0
+        );
+      }
+
+      return finalUserData;
     } catch (error) {
-      console.error('Error in getUser:', error);
+      console.error('❌ Error in getUser:', error);
       if (error instanceof Error) {
         throw error;
       }
       throw new Error('Failed to fetch user data');
     }
   }
+  // async getUserCursus(login: string): Promise<any[]> {
+  //   try {
+  //     const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users`;
+  //     const response = await this.makeAuthenticatedRequest(url);
+
+  //     if (!response.ok) {
+  //       console.warn('Failed to fetch cursus data:', response.status);
+  //       return [];
+  //     }
+
+  //     return await response.json();
+  //   } catch (error) {
+  //     console.warn('Failed to fetch cursus data:', error);
+  //     return [];
+  //   }
+  // }
 
   async getUserCursus(login: string): Promise<any[]> {
     try {
-      const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users`;
+      // Try adding query parameters to ensure skills are included
+      const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.USERS}/${login}/cursus_users?filter[primary]=true`;
       const response = await this.makeAuthenticatedRequest(url);
 
       if (!response.ok) {
@@ -456,7 +450,12 @@ class ApiClient {
         return [];
       }
 
-      return await response.json();
+      const cursusData = await response.json();
+      console.log(
+        '🔍 RAW CURSUS WITH SKILLS:',
+        JSON.stringify(cursusData, null, 2)
+      );
+      return cursusData;
     } catch (error) {
       console.warn('Failed to fetch cursus data:', error);
       return [];
@@ -486,7 +485,8 @@ class ApiClient {
       const response = await this.makeAuthenticatedRequest(url);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.status}`);
+        console.warn('Failed to fetch projects:', response.status);
+        return [];
       }
 
       return await response.json();
@@ -496,7 +496,6 @@ class ApiClient {
     }
   }
 
-  // Optional: Method to manually check token status
   getTokenStatus(): {
     hasToken: boolean;
     isExpired: boolean;
@@ -511,7 +510,6 @@ class ApiClient {
     };
   }
 
-  // Optional: Method to force token refresh
   async refreshToken(): Promise<void> {
     this.accessToken = null;
     this.tokenExpiresAt = null;

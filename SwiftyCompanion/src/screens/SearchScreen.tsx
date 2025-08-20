@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { COLORS, SPACING } from '../constants/config';
+import { COLORS, SPACING, GLOW_STYLES } from '../constants/config';
 import { useResponsive, getResponsiveValue } from '../hooks/useResponsive';
 import { apiClient } from '../services/api/client';
 
@@ -110,9 +110,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: COLORS.neonPink,
     marginBottom: SPACING.sm,
     textAlign: 'center',
+    textShadowColor: COLORS.glowPink,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   subtitle: {
     color: COLORS.textSecondary,
@@ -123,24 +126,28 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: 50,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    borderRadius: 12,
     paddingHorizontal: SPACING.md,
     fontSize: 16,
     marginBottom: SPACING.lg,
     backgroundColor: COLORS.surface,
     color: COLORS.text,
+    ...GLOW_STYLES.violetGlow,
   },
   searchButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.neonViolet,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderRadius: 8,
+    borderRadius: 12,
     width: '100%',
     alignItems: 'center',
     minHeight: 50,
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.borderAccent,
+    ...GLOW_STYLES.neonGlow,
   },
   disabledButton: {
     opacity: 0.7,
@@ -149,5 +156,8 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    textShadowColor: COLORS.glowViolet,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 5,
   },
 });
