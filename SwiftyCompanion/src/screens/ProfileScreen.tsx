@@ -31,7 +31,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
     SPACING.xl
   );
   const getImageSize = getResponsiveValue(120, 140, 160);
-  const getMaxWidth = getResponsiveValue(width, 600, 800);
+  const getMaxWidth = getResponsiveValue(width, width * 0.95, 1000);
   const getColumnsCount = getResponsiveValue(1, 2, 2);
 
   // Move ALL useMemo hooks to the top, before any conditional returns
@@ -141,6 +141,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
     contentContainer: {
       maxWidth: getMaxWidth(deviceType),
       alignSelf: 'center' as const,
+      width: '100%',
     },
     profileImage: {
       width: getImageSize(deviceType),
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
   },
   twoColumnLayout: {
     flexDirection: 'row',
-    gap: SPACING.lg,
+    gap: SPACING.md,
   },
   leftColumn: {
     flex: 0.4, // Smaller for details + skills
@@ -615,7 +616,7 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
     backgroundColor: COLORS.surfaceAccent,
     marginHorizontal: SPACING.md,
@@ -648,7 +649,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   detailsSection: {
-    margin: SPACING.md,
+    margin: SPACING.sm,
     padding: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: 16,
@@ -705,9 +706,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: '500',
   },
-  // Compact Skills Styles
   skillsSectionCompact: {
-    margin: SPACING.md,
+    margin: SPACING.sm,
     padding: SPACING.sm,
     backgroundColor: COLORS.surface,
     borderRadius: 12,
@@ -750,10 +750,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.neonPink,
     borderRadius: 2,
   },
-  // Expanded Projects Styles
   projectsSectionExpanded: {
-    margin: SPACING.md,
-    padding: SPACING.lg,
+    margin: SPACING.sm,
+    padding: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: 20,
     borderWidth: 2,
@@ -762,7 +761,7 @@ const styles = StyleSheet.create({
     ...GLOW_STYLES.neonGlow,
   },
   projectsScrollViewExpanded: {
-    maxHeight: 500,
+    maxHeight: 950,
   },
   projectItemExpanded: {
     marginBottom: SPACING.lg,
