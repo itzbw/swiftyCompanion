@@ -134,7 +134,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
     return currentLevelProgress * 100;
   };
 
-  const dynamicStyles = {
+  const dynamicStyles = StyleSheet.create({
     container: {
       paddingHorizontal: getSectionPadding(deviceType),
     },
@@ -148,7 +148,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
       height: getImageSize(deviceType),
       borderRadius: getImageSize(deviceType) / 2,
     },
-  };
+  });
 
   console.log('🔍 FINAL EXTRACTION RESULTS:');
   console.log('- skills:', skills.length);
@@ -219,7 +219,7 @@ export default function ProfileScreen({ login, onBack }: ProfileScreenProps) {
             source={{ uri: user.image?.link }}
             style={[styles.profileImage, dynamicStyles.profileImage]}
           />
-          <Text style={styles.displayName}>{user.displayname}</Text>
+          <Text style={styles.displayName}>{user.usual_full_name}</Text>
           <Text style={styles.login}>@{user.login}</Text>
         </View>
 

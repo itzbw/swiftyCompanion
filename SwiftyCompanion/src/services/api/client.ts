@@ -271,45 +271,104 @@ class ApiClient {
     return Date.now() >= this.tokenExpiresAt;
   }
 
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   private async ensureValidToken(): Promise<void> {
     if (!this.accessToken || this.isTokenExpired()) {
       await this.authenticate();
     }
   }
 
+  // private async makeAuthenticatedRequest(
+  //   url: string,
+  //   options: RequestInit = {}
+  // ): Promise<Response> {
+  //   await this.ensureValidToken();
+
+  //   const response = await fetch(url, {
+  //     ...options,
+  //     headers: {
+  //       ...options.headers,
+  //       Authorization: `Bearer ${this.accessToken}`,
+  //     },
+  //   });
+
+  //   if (response.status === 401) {
+  //     console.log('Got 401, refreshing token and retrying...');
+  //     this.accessToken = null;
+  //     this.tokenExpiresAt = null;
+  //     await this.authenticate();
+
+  //     return fetch(url, {
+  //       ...options,
+  //       headers: {
+  //         ...options.headers,
+  //         Authorization: `Bearer ${this.accessToken}`,
+  //       },
+  //     });
+  //   }
+
+  //   return response;
+  // }
+
+  // Replace the getUser method with this more stable version:
+
   private async makeAuthenticatedRequest(
     url: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retries = 3
   ): Promise<Response> {
     await this.ensureValidToken();
 
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    });
-
-    if (response.status === 401) {
-      console.log('Got 401, refreshing token and retrying...');
-      this.accessToken = null;
-      this.tokenExpiresAt = null;
-      await this.authenticate();
-
-      return fetch(url, {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const response = await fetch(url, {
         ...options,
         headers: {
           ...options.headers,
           Authorization: `Bearer ${this.accessToken}`,
         },
       });
+
+      // Handle 429 (Rate Limited) with exponential backoff
+      if (response.status === 429) {
+        if (attempt < retries) {
+          const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          console.log(
+            `Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/${retries}`
+          );
+          await this.delay(waitTime);
+          continue;
+        } else {
+          throw new Error(
+            'Rate limit exceeded - please wait before searching again'
+          );
+        }
+      }
+
+      // Handle 401 (Unauthorized)
+      if (response.status === 401) {
+        console.log('Got 401, refreshing token and retrying...');
+        this.accessToken = null;
+        this.tokenExpiresAt = null;
+        await this.authenticate();
+
+        return fetch(url, {
+          ...options,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        });
+      }
+
+      return response;
     }
 
-    return response;
+    throw new Error('Max retries exceeded');
   }
 
-  // Replace the getUser method with this more stable version:
   async getUser(login: string): Promise<User42> {
     try {
       console.log('Fetching user data for:', login);
@@ -329,6 +388,8 @@ class ApiClient {
 
       const userData = await userResponse.json();
       console.log('✅ User data received for:', userData.login);
+
+      await this.delay(200);
 
       // Then fetch cursus and projects data in parallel (these can fail gracefully)
       const [cursusResult, projectsResult] = await Promise.allSettled([
