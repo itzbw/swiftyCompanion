@@ -19,35 +19,35 @@ export const ENDPOINTS = {
 
 export const COLORS = {
   // Primary neon colors
-  primary: '#FF00FF', // Bright neon magenta/pink
-  secondary: '#8A2BE2', // Blue violet
-  accent: '#FF1493', // Deep pink
+  primary: '#FF00FF',
+  secondary: '#8A2BE2',
+  accent: '#FF1493',
 
   // Background colors (dark base)
-  background: '#0A0A0F', // Very dark navy/black
-  surface: '#1A1A2E', // Dark purple-navy
-  surfaceSecondary: '#16213E', // Slightly lighter dark blue
-  surfaceAccent: '#2D1B69', // Dark violet
+  background: '#0A0A0F',
+  surface: '#1A1A2E',
+  surfaceSecondary: '#16213E',
+  surfaceAccent: '#2D1B69',
 
   // Text colors
-  text: '#F8F8FF', // Ghost white
-  textSecondary: '#C8B2DB', // Light lavender
-  textMuted: '#9370DB', // Medium slate blue
+  text: '#F8F8FF',
+  textSecondary: '#C8B2DB',
+  textMuted: '#9370DB',
 
   // Accent colors
-  neonPink: '#FF10F0', // Electric pink
-  neonViolet: '#8B00FF', // Electric violet
-  neonBlue: '#00FFFF', // Cyan (for contrast)
+  neonPink: '#FF10F0',
+  neonViolet: '#8B00FF',
+  neonBlue: '#00FFFF',
 
   // Utility colors
-  border: '#4B0082', // Indigo border
-  borderAccent: '#DA70D6', // Orchid
+  border: '#4B0082',
+  borderAccent: '#DA70D6',
 
   // Status colors (with neon twist)
-  success: '#00FF7F', // Spring green (neon)
-  error: '#FF1493', // Deep pink (matches theme)
-  warning: '#FFD700', // Gold
-  info: '#00BFFF', // Deep sky blue
+  success: '#00FF7F',
+  error: '#FF1493',
+  warning: '#FFD700',
+  info: '#00BFFF',
 
   // Glow effects (for shadows/glows)
   glowPink: '#FF10F0',
