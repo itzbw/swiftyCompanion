@@ -251,6 +251,7 @@ class ApiClient {
 
       const tokenData: AuthToken = await response.json();
       this.accessToken = tokenData.access_token;
+      // Subtract 300 seconds (5 minutes) as safety buffer
       this.tokenExpiresAt = Date.now() + (tokenData.expires_in - 300) * 1000;
 
       console.log('Authentication successful');
@@ -275,45 +276,12 @@ class ApiClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // checks if the token is expired before making any API call
   private async ensureValidToken(): Promise<void> {
     if (!this.accessToken || this.isTokenExpired()) {
       await this.authenticate();
     }
   }
-
-  // private async makeAuthenticatedRequest(
-  //   url: string,
-  //   options: RequestInit = {}
-  // ): Promise<Response> {
-  //   await this.ensureValidToken();
-
-  //   const response = await fetch(url, {
-  //     ...options,
-  //     headers: {
-  //       ...options.headers,
-  //       Authorization: `Bearer ${this.accessToken}`,
-  //     },
-  //   });
-
-  //   if (response.status === 401) {
-  //     console.log('Got 401, refreshing token and retrying...');
-  //     this.accessToken = null;
-  //     this.tokenExpiresAt = null;
-  //     await this.authenticate();
-
-  //     return fetch(url, {
-  //       ...options,
-  //       headers: {
-  //         ...options.headers,
-  //         Authorization: `Bearer ${this.accessToken}`,
-  //       },
-  //     });
-  //   }
-
-  //   return response;
-  // }
-
-  // Replace the getUser method with this more stable version:
 
   private async makeAuthenticatedRequest(
     url: string,
